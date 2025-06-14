@@ -38,7 +38,7 @@ class UserDataStore(private val context: Context) {
         }
     }
 
-    // Method untuk menghapus data user (logout)
+
     suspend fun clearData() {
         context.dataStore.edit { preferences ->
             preferences.clear()

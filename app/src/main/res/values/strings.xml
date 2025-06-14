@@ -7,4 +7,10 @@
     <string name="no_travels_found">No travels found</string>
     <string name="start_travel_diary">Start your travel diary by adding your first trip!</string>
     <string name="completed">✓ Completed</string>
+    <string name="tambah_travel">Tambah Travel</string>
+    <string name="profil">Profile</string>
+    <string name="tutup">Close</string>
+    <string name="logout">Logout</string>
+    <string name="login_prompt">Please login to view your travel diary</string>
+    <string name="login_instruction">Click the profile icon above to sign in with Google</string>
 </resources>

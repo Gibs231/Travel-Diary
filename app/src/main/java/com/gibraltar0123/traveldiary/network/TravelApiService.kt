@@ -17,12 +17,12 @@ import retrofit2.http.Query
 
 private const val BASE_URL = "http://103.175.219.150:3010/"
 
-// Create Moshi instance
+
 private val moshi = Moshi.Builder()
     .add(KotlinJsonAdapterFactory())
     .build()
 
-// Configure Retrofit with converter
+
 private val retrofit = Retrofit.Builder()
     .baseUrl(BASE_URL)
     .addConverterFactory(MoshiConverterFactory.create(moshi))
