@@ -13,4 +13,25 @@
     <string name="logout">Logout</string>
     <string name="login_prompt">Please login to view your travel diary</string>
     <string name="login_instruction">Click the profile icon above to sign in with Google</string>
+    <string name="travel_image">Travel Image</string>
+    <string name="travel_title">Travel Title</string>
+    <string name="travel_description">Travel Description</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+
+    <string name="please_login">Please Login</string>
+    <string name="tap_profile_to_login">Tap the profile icon to login with Google</string>
+    <string name="check_connection">Please check your internet connection and try again</string>
+    <string name="network_error">Network Error</string>
+    <string name="server_error">Server Error</string>
+    <string name="upload_error">Upload Error</string>
+    <string name="image_too_large">Image too large</string>
+    <string name="please_select_smaller_image">Please select a smaller image</string>
+    <string name="travel_saved">Travel saved successfully</string>
+    <string name="travel_deleted">Travel deleted successfully</string>
+    <string name="failed_to_save">Failed to save travel</string>
+    <string name="failed_to_delete">Failed to delete travel</string>
+    <string name="no_internet">No internet connection</string>
+    <string name="connection_timeout">Connection timeout</string>
+    <string name="server_unavailable">Server unavailable</string>
 </resources>
