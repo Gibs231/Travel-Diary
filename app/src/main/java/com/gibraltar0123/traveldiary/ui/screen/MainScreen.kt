@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -76,7 +77,6 @@ fun ScreenContent(modifier: Modifier = Modifier) {
     val errorMessage by viewModel.errorMessage
 
     // Load data when the screen is first composed
-    // You should replace "user123" with actual user ID from your authentication system
     LaunchedEffect(Unit) {
         viewModel.retrieveData("example@example.com")
     }
@@ -93,7 +93,7 @@ fun ScreenContent(modifier: Modifier = Modifier) {
                 ) {
                     CircularProgressIndicator()
                     Text(
-                        text = "Loading travel...",
+                        text = stringResource(R.string.loading_travels),
                         modifier = Modifier.padding(top = 16.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -108,21 +108,25 @@ fun ScreenContent(modifier: Modifier = Modifier) {
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Failed to load travels",
+                        text = stringResource(R.string.koneksi_error),
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
                     )
-                    errorMessage?.let { message ->
-                        Text(
-                            text = message,
-                            modifier = Modifier.padding(top = 8.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
+
+                    Button(
+                        onClick = {
+                            viewModel.retrieveData("example@example.com")
+                        },
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = stringResource(R.string.coba_lagi))
                     }
                 }
             }
@@ -139,12 +143,12 @@ fun ScreenContent(modifier: Modifier = Modifier) {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "No travels found",
+                            text = stringResource(R.string.no_travels_found),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Start your travel diary by adding your first trip!",
+                            text = stringResource(R.string.start_travel_diary),
                             modifier = Modifier.padding(top = 8.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -194,8 +198,8 @@ fun ListItem(travel: Travel) {
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(12.dp)),
-            error = painterResource(R.drawable.ic_launcher_foreground),
-            placeholder = painterResource(R.drawable.ic_launcher_foreground)
+            placeholder = painterResource(R.drawable.loading_img),
+            error = painterResource(R.drawable.baseline_broken_image_24)
         )
 
         Box(
@@ -229,7 +233,7 @@ fun ListItem(travel: Travel) {
                 }
                 if (travel.completed) {
                     Text(
-                        text = "✓ Completed",
+                        text = stringResource(R.string.completed),
                         fontSize = 10.sp,
                         color = Color.Green,
                         fontWeight = FontWeight.Medium,

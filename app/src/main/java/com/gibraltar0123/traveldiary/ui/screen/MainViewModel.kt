@@ -47,6 +47,7 @@ class MainViewModel : ViewModel() {
 
     fun saveData(userId: String, title: String, description: String, bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
+            status.value = TravelApi.ApiStatus.LOADING
             try {
                 val result = TravelApi.service.uploadTravel(
                     userId,
@@ -61,6 +62,7 @@ class MainViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Failure: ${e.message}")
+                status.value = TravelApi.ApiStatus.FAILED
                 errorMessage.value = "Error: ${e.message}"
             }
         }
@@ -68,6 +70,7 @@ class MainViewModel : ViewModel() {
 
     fun deleteData(userId: String, id: Int) {
         viewModelScope.launch(Dispatchers.IO) {
+            status.value = TravelApi.ApiStatus.LOADING
             try {
                 val result = TravelApi.service.deleteTravel(userId, id)
                 if (result.status == 1) {
@@ -77,6 +80,7 @@ class MainViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Failure: ${e.message}")
+                status.value = TravelApi.ApiStatus.FAILED
                 errorMessage.value = "Error: ${e.message}"
             }
         }
