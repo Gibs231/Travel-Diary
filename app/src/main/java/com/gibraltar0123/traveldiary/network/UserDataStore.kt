@@ -10,38 +10,32 @@ import com.gibraltar0123.traveldiary.model.User
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
+
+val Context.dataStore : DataStore<Preferences> by preferencesDataStore(
+    name = "user_preference"
+)
 
 class UserDataStore(private val context: Context) {
 
     companion object {
-        private val NAME_KEY = stringPreferencesKey("user_name")
-        private val EMAIL_KEY = stringPreferencesKey("user_email")
-        private val PHOTO_URL_KEY = stringPreferencesKey("user_photo_url")
+        private val USER_NAME = stringPreferencesKey("name")
+        private val USER_EMAIL = stringPreferencesKey("email")
+        private val USER_PHOTO = stringPreferencesKey("photoUrl")
     }
-
 
     val userFlow: Flow<User> = context.dataStore.data.map { preferences ->
         User(
-            name = preferences[NAME_KEY] ?: "",
-            email = preferences[EMAIL_KEY] ?: "",
-            photoUrl = preferences[PHOTO_URL_KEY] ?: ""
+            name = preferences[USER_NAME] ?: "",
+            email = preferences[USER_EMAIL] ?: "",
+            photoUrl = preferences[USER_PHOTO] ?: ""
         )
     }
 
-
     suspend fun saveData(user: User) {
         context.dataStore.edit { preferences ->
-            preferences[NAME_KEY] = user.name
-            preferences[EMAIL_KEY] = user.email
-            preferences[PHOTO_URL_KEY] = user.photoUrl
-        }
-    }
-
-
-    suspend fun clearData() {
-        context.dataStore.edit { preferences ->
-            preferences.clear()
+            preferences[USER_NAME] = user.name
+            preferences[USER_EMAIL] = user.email
+            preferences[USER_PHOTO] = user.photoUrl
         }
     }
 }

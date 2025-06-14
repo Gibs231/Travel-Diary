@@ -14,7 +14,6 @@ coilcompose = "2.7.0"
 credentials = "1.5.0"
 googleid = "1.1.1"
 datastorePreferences = "1.1.4"
-androidImageCropper= "4.5.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,7 +39,7 @@ androidx-credentials = { group = "androidx.credentials", name = "credentials", v
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
-android-image-cropper = { module = "com.vanniktech:android-image-cropper", version.ref = "androidImageCropper"}
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

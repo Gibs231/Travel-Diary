@@ -3,41 +3,15 @@ package com.gibraltar0123.traveldiary.ui.screen
 import android.content.Context
 import android.content.res.Configuration
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,11 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.GetCredentialResponse
+import androidx.credentials.*
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -67,7 +37,7 @@ import com.gibraltar0123.traveldiary.BuildConfig
 import com.gibraltar0123.traveldiary.R
 import com.gibraltar0123.traveldiary.model.Travel
 import com.gibraltar0123.traveldiary.model.User
-import com.gibraltar0123.traveldiary.network.TravelApi.ApiStatus
+import com.gibraltar0123.traveldiary.network.TravelApi
 import com.gibraltar0123.traveldiary.network.UserDataStore
 import com.gibraltar0123.traveldiary.ui.theme.TravelDiaryTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -77,16 +47,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
-    val dataStore = remember { UserDataStore(context) }
+    val dataStore = UserDataStore(context)
     val user by dataStore.userFlow.collectAsState(User())
-    val viewModel: MainViewModel = viewModel()
-    val errorMessage by viewModel.errorMessage
+
     var showDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -99,172 +68,135 @@ fun MainScreen() {
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 actions = {
-                    IconButton(
-                        onClick = {
-                            if (user.email.isEmpty()) {
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    signIn(context, dataStore)
-                                }
-                            } else {
-                                showDialog = true
+                    IconButton(onClick = {
+                        if (user.email.isEmpty()) {
+                            CoroutineScope(Dispatchers.IO).launch { signIn(context, dataStore)
                             }
+                        } else {
+                            showDialog = true
                         }
-                    ) {
+                    }) {
                         Icon(
-                            painterResource(R.drawable.account_circle),
-                            contentDescription = stringResource(R.string.profil)
+                            painter = painterResource(R.drawable.account_circle),
+                            contentDescription = stringResource(R.string.profil),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.tambah_travel)
-                )
-            }
         }
     ) { innerPadding ->
-        ScreenContent(
-            modifier = Modifier.padding(innerPadding),
-            userId = user.email,
-            viewModel = viewModel
-        )
-    }
+        ScreenContent(Modifier.padding(innerPadding))
 
-    if (showDialog) {
-        ProfileDialog(
-            user = user,
-            onDismiss = { showDialog = false },
-            onConfirmation = {
-                scope.launch {
-                    signOut(context, dataStore)
-                    showDialog = false
-                }
+        if (showDialog) {
+            ProfilDialog(
+                user = user,
+                onDismissRequest = {showDialog = false}) {
+                CoroutineScope(Dispatchers.IO).launch { signOut(context, dataStore) }
+                showDialog = false
             }
-        )
-    }
-
-    if (errorMessage != null) {
-        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-        viewModel.clearMessage()
+        }
     }
 }
 
 @Composable
-fun ScreenContent(
-    modifier: Modifier = Modifier,
-    userId: String,
-    viewModel: MainViewModel
-) {
+fun ScreenContent(modifier: Modifier = Modifier) {
+    val viewModel: MainViewModel = viewModel()
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
+    val errorMessage by viewModel.errorMessage
 
-    LaunchedEffect(userId) {
-        if (userId.isNotEmpty()) {
-            viewModel.retrieveData(userId)
-        }
+
+    LaunchedEffect(Unit) {
+        viewModel.retrieveData("UserId")
     }
 
-    if (userId.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(16.dp)
+    when (status) {
+        TravelApi.ApiStatus.LOADING -> {
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(R.string.login_prompt),
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.login_instruction),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = stringResource(R.string.loading_travels),
+                        modifier = Modifier.padding(top = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
-    } else {
-        when (status) {
-            ApiStatus.LOADING -> {
-                Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Text(
-                            text = stringResource(R.string.loading_travels),
-                            modifier = Modifier.padding(top = 16.dp),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+
+        TravelApi.ApiStatus.FAILED -> {
+            Box(
+                modifier = modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.koneksi_error),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.retrieveData("UserId")
+                        },
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = stringResource(R.string.coba_lagi))
                     }
                 }
             }
+        }
 
-            ApiStatus.FAILED -> {
-                Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        TravelApi.ApiStatus.SUCCESS -> {
+            if (data.isEmpty()) {
+                Box(
+                    modifier = modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(16.dp)
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.koneksi_error),
+                            text = stringResource(R.string.no_travels_found),
                             style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stringResource(R.string.start_travel_diary),
+                            modifier = Modifier.padding(top = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
-                        Button(
-                            onClick = { viewModel.retrieveData(userId) },
-                            modifier = Modifier
-                                .padding(top = 16.dp)
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
-                        ) {
-                            Text(text = stringResource(R.string.coba_lagi))
-                        }
                     }
                 }
-            }
-
-            ApiStatus.SUCCESS -> {
-                if (data.isEmpty()) {
-                    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = stringResource(R.string.no_travels_found),
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = stringResource(R.string.start_travel_diary),
-                                modifier = Modifier.padding(top = 8.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                } else {
-                    LazyVerticalGrid(
-                        modifier = modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        columns = GridCells.Fixed(2),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(data) { travel ->
-                            ListItem(travel = travel)
-                        }
+            } else {
+                LazyVerticalGrid(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp),
+                    columns = GridCells.Fixed(2),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(data) { travel ->
+                        ListItem(travel = travel)
                     }
                 }
             }
@@ -273,59 +205,6 @@ fun ScreenContent(
 }
 
 
-
-
-private suspend fun signIn(context: Context, dataStore: UserDataStore) {
-    val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()
-        .setFilterByAuthorizedAccounts(false)
-        .setServerClientId(BuildConfig.API_KEY)
-        .build()
-
-    val request = GetCredentialRequest.Builder()
-        .addCredentialOption(googleIdOption)
-        .build()
-
-    try {
-        val credentialManager = CredentialManager.create(context)
-        val result = credentialManager.getCredential(context, request)
-        handleSignIn(result, dataStore)
-    } catch (e: GetCredentialException) {
-        Log.e("SIGN-IN", "Error: ${e.errorMessage}")
-    }
-}
-
-private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserDataStore)
-{
-    val credential = result.credential
-    if (credential is CustomCredential &&
-        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-        try {
-            val googleId = GoogleIdTokenCredential.createFrom(credential.data)
-            val nama = googleId.displayName ?: ""
-            val email = googleId.id
-            val photoUrl = googleId.profilePictureUri.toString()
-            dataStore.saveData(User(nama, email, photoUrl))
-        } catch (e: GoogleIdTokenParsingException) {
-            Log.e("SIGN-IN", "Error: ${e.message}")
-
-        }
-    } else {
-        Log.e("SIGN-IN", "Unrecognized credential type.")
-    }
-}
-
-
-private suspend fun signOut(context: Context, dataStore: UserDataStore) {
-    try {
-        val credentialManager = CredentialManager.create(context)
-        credentialManager.clearCredentialState(
-            ClearCredentialStateRequest()
-        )
-        dataStore.saveData(User())
-    } catch (e: ClearCredentialException) {
-        Log.e("SIGN-IN", "Error: ${e.errorMessage}")
-    }
-}
 
 @Composable
 fun ListItem(travel: Travel) {
@@ -389,13 +268,66 @@ fun ListItem(travel: Travel) {
                         text = stringResource(R.string.completed),
                         fontSize = 10.sp,
                         color = Color.Green,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
             }
         }
     }
 }
+
+private suspend fun signIn(context: Context, dataStore: UserDataStore) {
+    val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()
+        .setFilterByAuthorizedAccounts(false)
+        .setServerClientId(BuildConfig.API_KEY)
+        .build()
+
+    val request = GetCredentialRequest.Builder()
+        .addCredentialOption(googleIdOption)
+        .build()
+
+    try {
+        val credentialManager = CredentialManager.create(context)
+        val result = credentialManager.getCredential(context, request)
+        handleSignIn(result, dataStore)
+    } catch (e: GetCredentialException) {
+        Log.e("SIGN-IN", "Error: ${e.errorMessage}")
+    }
+}
+
+private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserDataStore)
+{
+    val credential = result.credential
+    if (credential is CustomCredential &&
+        credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+        try {
+            val googleId = GoogleIdTokenCredential.createFrom(credential.data)
+            val nama = googleId.displayName ?: ""
+            val email = googleId.id
+            val photoUrl = googleId.profilePictureUri.toString()
+            dataStore.saveData(User(nama, email, photoUrl))
+        } catch (e: GoogleIdTokenParsingException) {
+            Log.e("SIGN-IN", "Error: ${e.message}")
+
+        }
+    } else {
+        Log.e("SIGN-IN", "Unrecognized credential type.")
+    }
+}
+
+private suspend fun signOut(context: Context, dataStore: UserDataStore) {
+    try {
+        val credentialManager = CredentialManager.create(context)
+        credentialManager.clearCredentialState(
+            ClearCredentialStateRequest()
+        )
+        dataStore.saveData(User())
+    } catch (e: ClearCredentialException) {
+        Log.e("SIGN-IN", "Error: ${e.errorMessage}")
+    }
+}
+
 
 @Preview(showBackground = true)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
