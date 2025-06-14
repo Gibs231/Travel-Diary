@@ -30,7 +30,7 @@ class MainViewModel : ViewModel() {
             status.value = TravelApi.ApiStatus.LOADING
             try {
                 val response = TravelApi.service.getTravel(userId)
-                if (response.status == 1) {
+                if (response.status == 200) {
                     data.value = response.travels
                     status.value = TravelApi.ApiStatus.SUCCESS
                     errorMessage.value = null

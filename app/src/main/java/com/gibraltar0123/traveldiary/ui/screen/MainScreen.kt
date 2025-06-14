@@ -78,7 +78,7 @@ fun ScreenContent(modifier: Modifier = Modifier) {
     // Load data when the screen is first composed
     // You should replace "user123" with actual user ID from your authentication system
     LaunchedEffect(Unit) {
-        viewModel.retrieveData("user123")
+        viewModel.retrieveData("example@example.com")
     }
 
     when (status) {
@@ -186,7 +186,7 @@ fun ListItem(travel: Travel) {
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(travel.imageUrl?.let { TravelApi.getTravelUrl(it) })
+                .data(travel.imageUrl)
                 .crossfade(true)
                 .build(),
             contentDescription = stringResource(R.string.gambar, travel.title),
@@ -194,11 +194,10 @@ fun ListItem(travel: Travel) {
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(12.dp)),
-            error = painterResource(R.drawable.ic_launcher_foreground), // Add a placeholder image
+            error = painterResource(R.drawable.ic_launcher_foreground),
             placeholder = painterResource(R.drawable.ic_launcher_foreground)
         )
 
-        // Gradient overlay for better text readability
         Box(
             modifier = Modifier
                 .fillMaxWidth()
