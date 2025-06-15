@@ -23,9 +23,6 @@ private val logging = HttpLoggingInterceptor().apply {
 }
 
 private val client = OkHttpClient.Builder()
-    .connectTimeout(60, TimeUnit.SECONDS)
-    .readTimeout(60, TimeUnit.SECONDS)
-    .writeTimeout(60, TimeUnit.SECONDS)
     .addInterceptor(logging)
     .build()
 
@@ -62,8 +59,8 @@ interface TravelApiService {
 
     @DELETE("travel")
     suspend fun deleteTravel(
-        @Query("userId") userId: String,
-        @Query("id") id: Int
+        @Path("userId") userId: String,
+        @Path("id") id: Int
     ): OpStatus
 }
 

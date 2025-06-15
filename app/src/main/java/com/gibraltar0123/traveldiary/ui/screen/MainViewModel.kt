@@ -1,5 +1,6 @@
 package com.gibraltar0123.traveldiary.ui.screen
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ class MainViewModel : ViewModel() {
 
 
 
+    @SuppressLint("SuspiciousIndentation")
     fun saveData(userId: String, title: String, description: String, bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -61,7 +63,7 @@ class MainViewModel : ViewModel() {
                     bitmap.toMultipartBody()
                 )
 //                if (result.status == 200) {
-                    Log.d("MainViewModel", "Data saved successfully")
+
                     retrieveData(userId)
 //                } else {
 //                    throw Exception(result.message)
