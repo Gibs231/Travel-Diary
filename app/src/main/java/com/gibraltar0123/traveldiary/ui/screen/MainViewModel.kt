@@ -78,15 +78,11 @@ class MainViewModel : ViewModel() {
     fun deleteData(userId: String, id: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = TravelApi.service.deleteTravel(userId, id)
-                if (result.status == 200) {
+               TravelApi.service.deleteTravel(id)
                     retrieveData(userId)
-                } else {
-                    throw Exception(result.message)
-                }
             } catch (e: Exception) {
-                Log.d("MainViewModel", "Failure: ${e.message}")
-                errorMessage.value = "Error: ${e.message}"
+                Log.d("MainViewModel", "Delete failure: ${e.message}")
+                errorMessage.value = "Error deleting: ${e.message}"
             }
         }
     }

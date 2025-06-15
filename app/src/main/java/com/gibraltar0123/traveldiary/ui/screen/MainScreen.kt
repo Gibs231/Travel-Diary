@@ -71,18 +71,22 @@ fun MainScreen() {
     val viewModel: MainViewModel = viewModel()
     val errorMessage by viewModel.errorMessage
 
+    var showDialogHapus by remember { mutableStateOf(false) }
+    var travelToDelete by remember { mutableStateOf<Travel?>(null) }
+
     var showDialog by remember { mutableStateOf(false) }
     var showTravelDialog by remember { mutableStateOf(false) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
 
+    // Launcher untuk kamera dengan crop
     val cameraLauncher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null) showTravelDialog = true
     }
 
-
+    // Launcher untuk galeri dengan crop
     val galleryLauncher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null) showTravelDialog = true
@@ -128,7 +132,15 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        ScreenContent(viewModel, user.email, Modifier.padding(innerPadding))
+        ScreenContent(
+            viewModel = viewModel,
+            userId = user.email,
+            modifier = Modifier.padding(innerPadding),
+            onDeleteClick = { travel ->
+                travelToDelete = travel
+                showDialogHapus = true
+            }
+        )
 
         if (showDialog) {
             ProfilDialog(
@@ -175,10 +187,26 @@ fun MainScreen() {
         if (showTravelDialog) {
             TravelDialog(
                 bitmap = bitmap,
-                onDismissRequest = { showTravelDialog = false }) { nama, namaLatin ->
-                viewModel.saveData(user.email, nama, namaLatin, bitmap!!)
+                onDismissRequest = { showTravelDialog = false }) { title, description ->
+                viewModel.saveData(user.email, title, description , bitmap!!)
                 showTravelDialog = false
             }
+        }
+
+        if (showDialogHapus) {
+            DialogHapus(
+                onDismissRequest = {
+                    showDialogHapus = false
+                    travelToDelete = null
+                },
+                onConfirm = {
+                    travelToDelete?.let { travel ->
+                        viewModel.deleteData(user.email, travel.id)
+                    }
+                    showDialogHapus = false
+                    travelToDelete = null
+                }
+            )
         }
 
         if (errorMessage != null) {
@@ -218,7 +246,12 @@ fun ImageSourceDialog(
 }
 
 @Composable
-fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier) {
+fun ScreenContent(
+    viewModel: MainViewModel,
+    userId: String,
+    modifier: Modifier = Modifier,
+    onDeleteClick: (Travel) -> Unit
+) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
     LaunchedEffect(userId) {
@@ -264,7 +297,12 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(travel = it) }
+                items(data) { travel ->
+                    ListItem(
+                        travel = travel,
+                        onDeleteClick = onDeleteClick
+                    )
+                }
             }
         }
 
@@ -288,7 +326,10 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
 }
 
 @Composable
-fun ListItem(travel: Travel) {
+fun ListItem(
+    travel: Travel,
+    onDeleteClick: (Travel) -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -343,14 +384,36 @@ fun ListItem(travel: Travel) {
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-                if (travel.completed) {
-                    Text(
-                        text = stringResource(R.string.completed),
-                        fontSize = 10.sp,
-                        color = Color.Green,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (travel.completed) {
+                        Text(
+                            text = stringResource(R.string.completed),
+                            fontSize = 10.sp,
+                            color = Color.Green,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    // Delete button always visible
+                    IconButton(
+                        onClick = {
+                            onDeleteClick(travel)
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_delete_24),
+                            contentDescription = "Hapus",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         }

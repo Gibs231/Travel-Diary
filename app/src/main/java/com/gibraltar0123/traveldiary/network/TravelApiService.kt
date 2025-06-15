@@ -57,11 +57,10 @@ interface TravelApiService {
         @Part image: MultipartBody.Part
     ): OpStatus
 
-    @DELETE("travel")
+    @DELETE("/travel/{id}")
     suspend fun deleteTravel(
-        @Path("userId") userId: String,
         @Path("id") id: Int
-    ): OpStatus
+    )
 }
 
 object TravelApi {

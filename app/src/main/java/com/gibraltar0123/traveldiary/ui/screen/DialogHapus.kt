@@ -14,8 +14,7 @@ import com.gibraltar0123.traveldiary.ui.theme.TravelDiaryTheme
 fun DialogHapus(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit
-
-){
+) {
     AlertDialog(
         text = { Text(text = stringResource(id = R.string.pesan_hapus)) },
         confirmButton = {
@@ -24,22 +23,22 @@ fun DialogHapus(
             }
         },
         dismissButton = {
-            TextButton(onClick = { onDismissRequest() }) {
+            TextButton(onClick = onDismissRequest) {
                 Text(text = stringResource(id = R.string.batal))
             }
         },
-        onDismissRequest = { onDismissRequest() },
-
-        )
+        onDismissRequest = onDismissRequest
+    )
 }
 
 @Preview(showSystemUi = true)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
 @Composable
 fun DialogHapusPreview() {
-    TravelDiaryTheme {  }
+    TravelDiaryTheme {
         DialogHapus(
             onDismissRequest = { },
             onConfirm = { }
         )
     }
+}
