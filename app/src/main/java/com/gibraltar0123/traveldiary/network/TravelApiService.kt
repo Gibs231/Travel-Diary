@@ -50,8 +50,8 @@ interface TravelApiService {
     @Multipart
     @PUT("/travel/{id}")
     suspend fun updateTravel(
-        @Query("userId") userId: String,
-        @Part("id") id: RequestBody,
+        @Part("userId") userId: String,
+        @Path("id") id: RequestBody,
         @Part("title") title: RequestBody,
         @Part("description") description: RequestBody,
         @Part image: MultipartBody.Part

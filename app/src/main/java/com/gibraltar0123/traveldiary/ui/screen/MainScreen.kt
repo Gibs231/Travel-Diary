@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,13 +23,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -36,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,6 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -56,10 +69,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -106,9 +122,11 @@ fun MainScreen() {
     var showTravelDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     var travelToEdit by remember { mutableStateOf<Travel?>(null) }
+    var travelToPreview by remember { mutableStateOf<Travel?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
 
 
@@ -140,7 +158,6 @@ fun MainScreen() {
         }
     }
 
-    // Launcher untuk galeri dengan crop
     val galleryLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
         val croppedBitmap = getCroppedImage(context.contentResolver, result)
         if (croppedBitmap != null) {
@@ -157,13 +174,49 @@ fun MainScreen() {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = stringResource(id = R.string.app_name))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = stringResource(id = R.string.app_name),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (user.email.isNotEmpty()) {
+                                Text(
+                                    text = "Welcome back, ${user.name}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.mediumTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 actions = {
+                    if (user.photoUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = user.photoUrl,
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     IconButton(onClick = {
                         if (user.email.isEmpty()) {
                             CoroutineScope(Dispatchers.IO).launch {
@@ -183,10 +236,15 @@ fun MainScreen() {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                isEditMode = false
-                showImageSourceDialog = true
-            }) {
+            FloatingActionButton(
+                onClick = {
+                    isEditMode = false
+                    showImageSourceDialog = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.shadow(8.dp, CircleShape)
+            ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(id = R.string.tambah_travel)
@@ -206,6 +264,10 @@ fun MainScreen() {
                 travelToEdit = travel
                 isEditMode = true
                 showImageSourceDialog = true
+            },
+            onCardClick = { travel ->
+                travelToPreview = travel
+                showPreviewDialog = true
             }
         )
 
@@ -271,7 +333,7 @@ fun MainScreen() {
             }
         }
 
-        // Dialog untuk edit travel
+
         if (showEditDialog && travelToEdit != null) {
             EditTravelDialog(
                 travel = travelToEdit!!,
@@ -303,6 +365,17 @@ fun MainScreen() {
             )
         }
 
+        // Travel Preview Dialog
+        if (showPreviewDialog && travelToPreview != null) {
+            TravelPreviewDialog(
+                travel = travelToPreview!!,
+                onDismissRequest = {
+                    showPreviewDialog = false
+                    travelToPreview = null
+                }
+            )
+        }
+
         if (errorMessage != null) {
             Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
@@ -317,7 +390,8 @@ fun ScreenContent(
     userId: String,
     modifier: Modifier = Modifier,
     onDeleteClick: (Travel) -> Unit,
-    onEditClick: (Travel) -> Unit
+    onEditClick: (Travel) -> Unit,
+    onCardClick: (Travel) -> Unit
 ) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
@@ -327,177 +401,449 @@ fun ScreenContent(
         }
     }
 
-    when {
-        userId.isEmpty() -> {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(id = R.string.login_required),
-                    modifier = Modifier.padding(16.dp)
-                )
-                Text(
-                    text = stringResource(id = R.string.tap_profile_to_login),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-        }
+    Box(
+        modifier = modifier.fillMaxSize()
+    ) {
 
-        status == ApiStatus.LOADING -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-
-        status == ApiStatus.SUCCESS -> {
-            LazyVerticalGrid(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(4.dp),
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(data) { travel ->
-                    ListItem(
-                        travel = travel,
-                        onDeleteClick = onDeleteClick,
-                        onEditClick = onEditClick
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
                     )
+                )
+        )
+
+        when {
+            userId.isEmpty() -> {
+                EmptyLoginState()
+            }
+
+            status == ApiStatus.LOADING -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Loading your adventures...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
-        }
 
-        status == ApiStatus.FAILED -> {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(text = stringResource(id = R.string.koneksi_error))
-                Button(
-                    onClick = { viewModel.retrieveData(userId) },
-                    modifier = Modifier.padding(top = 16.dp),
-                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
-                ) {
-                    Text(text = stringResource(id = R.string.coba_lagi))
+            status == ApiStatus.SUCCESS -> {
+                if (data.isEmpty()) {
+                    EmptyTravelState()
+                } else {
+                    LazyVerticalStaggeredGrid(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        columns = StaggeredGridCells.Fixed(2),
+                        contentPadding = PaddingValues(vertical = 16.dp, horizontal = 0.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalItemSpacing = 12.dp
+                    ) {
+                        items(data) { travel ->
+                            TravelCard(
+                                travel = travel,
+                                onDeleteClick = onDeleteClick,
+                                onEditClick = onEditClick,
+                                onCardClick = onCardClick
+                            )
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
+                    }
                 }
+            }
+
+            status == ApiStatus.FAILED -> {
+                ErrorState { viewModel.retrieveData(userId) }
             }
         }
     }
 }
 
 @Composable
-fun ListItem(
+fun EmptyLoginState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Start Your Travel Journey",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(id = R.string.login_required),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(id = R.string.tap_profile_to_login),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+    }
+}
+
+@Composable
+fun EmptyTravelState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.baseline_camera_alt_24), // Make sure you have this icon
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "No Adventures Yet",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Capture your first travel memory\nby tapping the + button below",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+    }
+}
+
+@Composable
+fun ErrorState(onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Oops! Connection Error",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(id = R.string.koneksi_error),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.padding(top = 16.dp),
+            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
+        ) {
+            Text(text = stringResource(id = R.string.coba_lagi))
+        }
+    }
+}
+
+@Composable
+fun TravelCard(
     travel: Travel,
     onDeleteClick: (Travel) -> Unit,
-    onEditClick: (Travel) -> Unit
+    onEditClick: (Travel) -> Unit,
+    onCardClick: (Travel) -> Unit
 ) {
-    Box(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                RoundedCornerShape(12.dp)
+            .clickable { onCardClick(travel) }
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
             ),
-        contentAlignment = Alignment.BottomCenter
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(travel.imageUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = stringResource(R.string.gambar, travel.title),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(12.dp)),
-            placeholder = painterResource(R.drawable.loading_img),
-            error = painterResource(R.drawable.baseline_broken_image_24)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.Black.copy(alpha = 0.6f),
-                    RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-                )
-                .padding(12.dp)
-        ) {
-            Column {
+        Box {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(travel.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = stringResource(R.string.gambar, travel.title),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                placeholder = painterResource(R.drawable.loading_img),
+                error = painterResource(R.drawable.baseline_broken_image_24)
+            )
+
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
+                            ),
+                            startY = 100f
+                        ),
+                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    )
+            )
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                IconButton(
+                    onClick = { onEditClick(travel) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.9f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_edit_24),
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { onDeleteClick(travel) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.9f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_delete_24),
+                        contentDescription = "Hapus",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                if (travel.completed) {
+                    Text(
+                        text = stringResource(R.string.completed),
+                        fontSize = 10.sp,
+                        color = Color.Green,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(
+                                Color.Green.copy(alpha = 0.2f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 Text(
                     text = travel.title,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 16.sp,
-                    maxLines = 1,
+                    fontSize = 18.sp,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (!travel.description.isNullOrBlank()) {
-                    Text(
-                        text = travel.description,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.9f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+            }
+        }
+
+
+        if (!travel.description.isNullOrBlank()) {
+            Text(
+                text = travel.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun TravelPreviewDialog(
+    travel: Travel,
+    onDismissRequest: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
-                Row(
+
+
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(travel.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = travel.title,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(250.dp)
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    placeholder = painterResource(R.drawable.loading_img),
+                    error = painterResource(R.drawable.baseline_broken_image_24)
+                )
+
+
+                Column(
+                    modifier = Modifier.padding(20.dp)
                 ) {
+                    // Status badge
                     if (travel.completed) {
                         Text(
                             text = stringResource(R.string.completed),
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             color = Color.Green,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(
+                                    Color.Green.copy(alpha = 0.2f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Title
+                    Text(
+                        text = travel.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+
+                    if (!travel.description.isNullOrBlank()) {
+                        Text(
+                            text = "Description",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = travel.description,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 24.sp
                         )
                     } else {
-                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "No description available",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = FontStyle.Italic
+                        )
                     }
 
-
-                    Row {
-
-                        IconButton(
-                            onClick = {
-                                onEditClick(travel)
-                            }
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_edit_24),
-                                contentDescription = "Edit",
-                                tint = Color.White
-                            )
-                        }
-
-                        // Delete button
-                        IconButton(
-                            onClick = {
-                                onDeleteClick(travel)
-                            }
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_delete_24),
-                                contentDescription = "Hapus",
-                                tint = Color.White
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }

@@ -90,19 +90,13 @@ class MainViewModel : ViewModel() {
     fun updateData(userId: String, travelId: Int, title: String, description: String, bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = TravelApi.service.updateTravel(
+               TravelApi.service.updateTravel(
                     userId = userId,
                     id = travelId.toString().toRequestBody("text/plain".toMediaTypeOrNull()),
                     title = title.toRequestBody("text/plain".toMediaTypeOrNull()),
                     description = description.toRequestBody("text/plain".toMediaTypeOrNull()),
                     image = bitmap.toMultipartBody()
                 )
-
-                if (result.status == 200) {
-                    retrieveData(userId)
-                } else {
-                    throw Exception(result.message)
-                }
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Update failure: ${e.message}")
                 errorMessage.value = "Error updating: ${e.message}"
