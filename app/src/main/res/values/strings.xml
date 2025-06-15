@@ -36,4 +36,17 @@
     <string name="server_unavailable">Server unavailable</string>
     <string name="login_required">Please log in to view your travels</string>
     <string name="tap_profile_to_login">Tap the profile icon to sign in</string>
+
+    <string name="batal">Batal</string>
+    <string name="simpan">Simpan</string>
+    <string name="pesan_hapus">Hapus data ini?</string>
+    <string name="hapus">Hapus</string>
+
+
+
+    <string name="select_image_source">Pilih Sumber Gambar</string>
+    <string name="choose_image_source_message">Pilih sumber gambar untuk travel Anda</string>
+    <string name="camera">Kamera</string>
+    <string name="gallery">Galeri</string>
+
 </resources>

@@ -73,11 +73,17 @@ fun MainScreen() {
 
     var showDialog by remember { mutableStateOf(false) }
     var showTravelDialog by remember { mutableStateOf(false) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
 
+    val cameraLauncher = rememberLauncherForActivityResult(CropImageContract()) {
+        bitmap = getCroppedImage(context.contentResolver, it)
+        if (bitmap != null) showTravelDialog = true
+    }
 
-    val launcher = rememberLauncherForActivityResult(CropImageContract()) {
+
+    val galleryLauncher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null) showTravelDialog = true
     }
@@ -113,15 +119,7 @@ fun MainScreen() {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                val options = CropImageContractOptions(
-                    null,
-                    CropImageOptions(
-                        imageSourceIncludeGallery = false,
-                        imageSourceIncludeCamera = true,
-                        fixAspectRatio = true
-                    )
-                )
-                launcher.launch(options)
+                showImageSourceDialog = true
             }) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -130,7 +128,7 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        ScreenContent(viewModel, user.email,Modifier.padding(innerPadding))
+        ScreenContent(viewModel, user.email, Modifier.padding(innerPadding))
 
         if (showDialog) {
             ProfilDialog(
@@ -144,19 +142,79 @@ fun MainScreen() {
             }
         }
 
+        if (showImageSourceDialog) {
+            ImageSourceDialog(
+                onDismissRequest = { showImageSourceDialog = false },
+                onCameraSelected = {
+                    showImageSourceDialog = false
+                    val options = CropImageContractOptions(
+                        null,
+                        CropImageOptions(
+                            imageSourceIncludeGallery = false,
+                            imageSourceIncludeCamera = true,
+                            fixAspectRatio = true
+                        )
+                    )
+                    cameraLauncher.launch(options)
+                },
+                onGallerySelected = {
+                    showImageSourceDialog = false
+                    val options = CropImageContractOptions(
+                        null,
+                        CropImageOptions(
+                            imageSourceIncludeGallery = true,
+                            imageSourceIncludeCamera = false,
+                            fixAspectRatio = true
+                        )
+                    )
+                    galleryLauncher.launch(options)
+                }
+            )
+        }
+
         if (showTravelDialog) {
-            TravelDialog (
+            TravelDialog(
                 bitmap = bitmap,
                 onDismissRequest = { showTravelDialog = false }) { nama, namaLatin ->
                 viewModel.saveData(user.email, nama, namaLatin, bitmap!!)
                 showTravelDialog = false
             }
         }
-        if (errorMessage != null){
-            Toast.makeText(context,errorMessage, Toast.LENGTH_LONG).show()
+
+        if (errorMessage != null) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
         }
     }
+}
+
+@Composable
+fun ImageSourceDialog(
+    onDismissRequest: () -> Unit,
+    onCameraSelected: () -> Unit,
+    onGallerySelected: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { onDismissRequest() },
+        title = { Text(text = stringResource(R.string.select_image_source)) },
+        text = { Text(text = stringResource(R.string.choose_image_source_message)) },
+        confirmButton = {
+            Row {
+                TextButton(onClick = onCameraSelected) {
+                    Text(text = stringResource(R.string.camera))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(onClick = onGallerySelected) {
+                    Text(text = stringResource(R.string.gallery))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -228,8 +286,6 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
         }
     }
 }
-
-
 
 @Composable
 fun ListItem(travel: Travel) {
@@ -318,8 +374,7 @@ private suspend fun signIn(context: Context, dataStore: UserDataStore) {
     }
 }
 
-private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserDataStore)
-{
+private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserDataStore) {
     val credential = result.credential
     if (credential is CustomCredential &&
         credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -331,7 +386,6 @@ private suspend fun handleSignIn(result: GetCredentialResponse, dataStore: UserD
             dataStore.saveData(User(nama, email, photoUrl))
         } catch (e: GoogleIdTokenParsingException) {
             Log.e("SIGN-IN", "Error: ${e.message}")
-
         }
     } else {
         Log.e("SIGN-IN", "Unrecognized credential type.")
@@ -368,8 +422,6 @@ private fun getCroppedImage(
         ImageDecoder.decodeBitmap(source)
     }
 }
-
-
 
 @Preview(showBackground = true)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
