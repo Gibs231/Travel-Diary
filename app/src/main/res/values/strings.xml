@@ -49,4 +49,8 @@
     <string name="camera">Kamera</string>
     <string name="gallery">Galeri</string>
 
+    <string name="pilih_sumber_gambar">Pilih Sumber Gambar</string>
+    <string name="kamera">Kamera</string>
+    <string name="galeri">Galeri</string>
+
 </resources>

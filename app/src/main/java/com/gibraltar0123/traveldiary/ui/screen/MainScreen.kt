@@ -12,15 +12,40 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +60,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.*
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -50,7 +79,6 @@ import com.gibraltar0123.traveldiary.R
 import com.gibraltar0123.traveldiary.model.Travel
 import com.gibraltar0123.traveldiary.model.User
 import com.gibraltar0123.traveldiary.network.ApiStatus
-import com.gibraltar0123.traveldiary.network.TravelApi
 import com.gibraltar0123.traveldiary.network.UserDataStore
 import com.gibraltar0123.traveldiary.ui.theme.TravelDiaryTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -76,20 +104,53 @@ fun MainScreen() {
 
     var showDialog by remember { mutableStateOf(false) }
     var showTravelDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
+    var travelToEdit by remember { mutableStateOf<Travel?>(null) }
+    var isEditMode by remember { mutableStateOf(false) }
 
-    // Launcher untuk kamera dengan crop
-    val cameraLauncher = rememberLauncherForActivityResult(CropImageContract()) {
-        bitmap = getCroppedImage(context.contentResolver, it)
-        if (bitmap != null) showTravelDialog = true
+
+    fun resetEditState() {
+        bitmap = null
+        travelToEdit = null
+        isEditMode = false
+        showEditDialog = false
+        showImageSourceDialog = false
+    }
+
+
+    fun resetAddState() {
+        bitmap = null
+        showTravelDialog = false
+        showImageSourceDialog = false
+    }
+
+
+    val cameraLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        val croppedBitmap = getCroppedImage(context.contentResolver, result)
+        if (croppedBitmap != null) {
+            bitmap = croppedBitmap
+            if (isEditMode && travelToEdit != null) {
+                showEditDialog = true
+            } else {
+                showTravelDialog = true
+            }
+        }
     }
 
     // Launcher untuk galeri dengan crop
-    val galleryLauncher = rememberLauncherForActivityResult(CropImageContract()) {
-        bitmap = getCroppedImage(context.contentResolver, it)
-        if (bitmap != null) showTravelDialog = true
+    val galleryLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        val croppedBitmap = getCroppedImage(context.contentResolver, result)
+        if (croppedBitmap != null) {
+            bitmap = croppedBitmap
+            if (isEditMode && travelToEdit != null) {
+                showEditDialog = true
+            } else {
+                showTravelDialog = true
+            }
+        }
     }
 
     Scaffold(
@@ -123,6 +184,7 @@ fun MainScreen() {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
+                isEditMode = false
                 showImageSourceDialog = true
             }) {
                 Icon(
@@ -139,6 +201,11 @@ fun MainScreen() {
             onDeleteClick = { travel ->
                 travelToDelete = travel
                 showDialogHapus = true
+            },
+            onEditClick = { travel ->
+                travelToEdit = travel
+                isEditMode = true
+                showImageSourceDialog = true
             }
         )
 
@@ -156,7 +223,13 @@ fun MainScreen() {
 
         if (showImageSourceDialog) {
             ImageSourceDialog(
-                onDismissRequest = { showImageSourceDialog = false },
+                onDismissRequest = {
+                    if (isEditMode) {
+                        resetEditState()
+                    } else {
+                        resetAddState()
+                    }
+                },
                 onCameraSelected = {
                     showImageSourceDialog = false
                     val options = CropImageContractOptions(
@@ -187,9 +260,30 @@ fun MainScreen() {
         if (showTravelDialog) {
             TravelDialog(
                 bitmap = bitmap,
-                onDismissRequest = { showTravelDialog = false }) { title, description ->
-                viewModel.saveData(user.email, title, description , bitmap!!)
-                showTravelDialog = false
+                onDismissRequest = {
+                    resetAddState()
+                }
+            ) { title, description ->
+                bitmap?.let {
+                    viewModel.saveData(user.email, title, description, it)
+                }
+                resetAddState()
+            }
+        }
+
+        // Dialog untuk edit travel
+        if (showEditDialog && travelToEdit != null) {
+            EditTravelDialog(
+                travel = travelToEdit!!,
+                bitmap = bitmap,
+                onDismissRequest = {
+                    resetEditState()
+                }
+            ) { title, description ->
+                bitmap?.let {
+                    viewModel.updateData(user.email, travelToEdit!!.id, title, description, it)
+                }
+                resetEditState()
             }
         }
 
@@ -216,41 +310,14 @@ fun MainScreen() {
     }
 }
 
-@Composable
-fun ImageSourceDialog(
-    onDismissRequest: () -> Unit,
-    onCameraSelected: () -> Unit,
-    onGallerySelected: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = { onDismissRequest() },
-        title = { Text(text = stringResource(R.string.select_image_source)) },
-        text = { Text(text = stringResource(R.string.choose_image_source_message)) },
-        confirmButton = {
-            Row {
-                TextButton(onClick = onCameraSelected) {
-                    Text(text = stringResource(R.string.camera))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onGallerySelected) {
-                    Text(text = stringResource(R.string.gallery))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(R.string.cancel))
-            }
-        }
-    )
-}
 
 @Composable
 fun ScreenContent(
     viewModel: MainViewModel,
     userId: String,
     modifier: Modifier = Modifier,
-    onDeleteClick: (Travel) -> Unit
+    onDeleteClick: (Travel) -> Unit,
+    onEditClick: (Travel) -> Unit
 ) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
@@ -262,7 +329,6 @@ fun ScreenContent(
 
     when {
         userId.isEmpty() -> {
-            // Show login prompt when user is not logged in
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
@@ -300,7 +366,8 @@ fun ScreenContent(
                 items(data) { travel ->
                     ListItem(
                         travel = travel,
-                        onDeleteClick = onDeleteClick
+                        onDeleteClick = onDeleteClick,
+                        onEditClick = onEditClick
                     )
                 }
             }
@@ -328,7 +395,8 @@ fun ScreenContent(
 @Composable
 fun ListItem(
     travel: Travel,
-    onDeleteClick: (Travel) -> Unit
+    onDeleteClick: (Travel) -> Unit,
+    onEditClick: (Travel) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -402,17 +470,33 @@ fun ListItem(
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
-                    // Delete button always visible
-                    IconButton(
-                        onClick = {
-                            onDeleteClick(travel)
+
+                    Row {
+
+                        IconButton(
+                            onClick = {
+                                onEditClick(travel)
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_edit_24),
+                                contentDescription = "Edit",
+                                tint = Color.White
+                            )
                         }
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_delete_24),
-                            contentDescription = "Hapus",
-                            tint = Color.White
-                        )
+
+                        // Delete button
+                        IconButton(
+                            onClick = {
+                                onDeleteClick(travel)
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_delete_24),
+                                contentDescription = "Hapus",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             }
