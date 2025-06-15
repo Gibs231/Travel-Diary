@@ -6,7 +6,6 @@ data class Travel(
     val title: String,
     val completed: Boolean,
     val description: String?,
-    val imageUrl: String?,
-
+    val imageUrl: String,
 )
 

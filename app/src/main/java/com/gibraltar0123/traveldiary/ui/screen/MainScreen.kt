@@ -8,6 +8,7 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,7 +31,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -49,6 +49,7 @@ import com.gibraltar0123.traveldiary.BuildConfig
 import com.gibraltar0123.traveldiary.R
 import com.gibraltar0123.traveldiary.model.Travel
 import com.gibraltar0123.traveldiary.model.User
+import com.gibraltar0123.traveldiary.network.ApiStatus
 import com.gibraltar0123.traveldiary.network.TravelApi
 import com.gibraltar0123.traveldiary.network.UserDataStore
 import com.gibraltar0123.traveldiary.ui.theme.TravelDiaryTheme
@@ -67,14 +68,19 @@ fun MainScreen() {
     val dataStore = UserDataStore(context)
     val user by dataStore.userFlow.collectAsState(User())
 
+    val viewModel: MainViewModel = viewModel()
+    val errorMessage by viewModel.errorMessage
+
     var showDialog by remember { mutableStateOf(false) }
+    var showTravelDialog by remember { mutableStateOf(false) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
 
+
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
+        if (bitmap != null) showTravelDialog = true
     }
-
 
     Scaffold(
         topBar = {
@@ -89,7 +95,8 @@ fun MainScreen() {
                 actions = {
                     IconButton(onClick = {
                         if (user.email.isEmpty()) {
-                            CoroutineScope(Dispatchers.IO).launch { signIn(context, dataStore)
+                            CoroutineScope(Dispatchers.IO).launch {
+                                signIn(context, dataStore)
                             }
                         } else {
                             showDialog = true
@@ -106,7 +113,8 @@ fun MainScreen() {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                val options = CropImageContractOptions(null,
+                val options = CropImageContractOptions(
+                    null,
                     CropImageOptions(
                         imageSourceIncludeGallery = false,
                         imageSourceIncludeCamera = true,
@@ -114,7 +122,6 @@ fun MainScreen() {
                     )
                 )
                 launcher.launch(options)
-
             }) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -123,120 +130,99 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        ScreenContent(Modifier.padding(innerPadding))
+        ScreenContent(viewModel, user.email,Modifier.padding(innerPadding))
 
         if (showDialog) {
             ProfilDialog(
                 user = user,
-                onDismissRequest = {showDialog = false}) {
-                CoroutineScope(Dispatchers.IO).launch { signOut(context, dataStore) }
+                onDismissRequest = { showDialog = false }
+            ) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    signOut(context, dataStore)
+                }
                 showDialog = false
             }
+        }
+
+        if (showTravelDialog) {
+            TravelDialog (
+                bitmap = bitmap,
+                onDismissRequest = { showTravelDialog = false }) { nama, namaLatin ->
+                viewModel.saveData(user.email, nama, namaLatin, bitmap!!)
+                showTravelDialog = false
+            }
+        }
+        if (errorMessage != null){
+            Toast.makeText(context,errorMessage, Toast.LENGTH_LONG).show()
+            viewModel.clearMessage()
         }
     }
 }
 
 @Composable
-fun ScreenContent(modifier: Modifier = Modifier) {
-    val viewModel: MainViewModel = viewModel()
+fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
-    val errorMessage by viewModel.errorMessage
-
-
-    LaunchedEffect(Unit) {
-        viewModel.retrieveData("UserId")
+    LaunchedEffect(userId) {
+        if (userId.isNotEmpty()) {
+            viewModel.retrieveData(userId)
+        }
     }
 
-    when (status) {
-        TravelApi.ApiStatus.LOADING -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+    when {
+        userId.isEmpty() -> {
+            // Show login prompt when user is not logged in
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = stringResource(R.string.loading_travels),
-                        modifier = Modifier.padding(top = 16.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
-
-        TravelApi.ApiStatus.FAILED -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                Text(
+                    text = stringResource(id = R.string.login_required),
                     modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.koneksi_error),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Button(
-                        onClick = {
-                            viewModel.retrieveData("UserId")
-                        },
-                        modifier = Modifier
-                            .padding(top = 16.dp)
-                            .padding(horizontal = 24.dp, vertical = 8.dp)
-                    ) {
-                        Text(text = stringResource(R.string.coba_lagi))
-                    }
-                }
+                )
+                Text(
+                    text = stringResource(id = R.string.tap_profile_to_login),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
         }
 
-        TravelApi.ApiStatus.SUCCESS -> {
-            if (data.isEmpty()) {
-                Box(
-                    modifier = modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.no_travels_found),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = stringResource(R.string.start_travel_diary),
-                            modifier = Modifier.padding(top = 8.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                LazyVerticalGrid(
-                    modifier = modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp),
-                    columns = GridCells.Fixed(2),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+        status == ApiStatus.LOADING -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
 
+        status == ApiStatus.SUCCESS -> {
+            LazyVerticalGrid(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                items(data) { ListItem(travel = it) }
+            }
+        }
+
+        status == ApiStatus.FAILED -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = stringResource(id = R.string.koneksi_error))
+                Button(
+                    onClick = { viewModel.retrieveData(userId) },
+                    modifier = Modifier.padding(top = 16.dp),
+                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
                 ) {
-                    items(data) { travel ->
-                        ListItem(travel)
-                    }
+                    Text(text = stringResource(id = R.string.coba_lagi))
                 }
             }
         }
@@ -272,7 +258,6 @@ fun ListItem(travel: Travel) {
             placeholder = painterResource(R.drawable.loading_img),
             error = painterResource(R.drawable.baseline_broken_image_24)
         )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -321,11 +306,9 @@ private suspend fun signIn(context: Context, dataStore: UserDataStore) {
         .setFilterByAuthorizedAccounts(false)
         .setServerClientId(BuildConfig.API_KEY)
         .build()
-
     val request = GetCredentialRequest.Builder()
         .addCredentialOption(googleIdOption)
         .build()
-
     try {
         val credentialManager = CredentialManager.create(context)
         val result = credentialManager.getCredential(context, request)

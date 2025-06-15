@@ -20,7 +20,7 @@
     <string name="save">Save</string>
 
     <string name="please_login">Please Login</string>
-    <string name="tap_profile_to_login">Tap the profile icon to login with Google</string>
+
     <string name="check_connection">Please check your internet connection and try again</string>
     <string name="network_error">Network Error</string>
     <string name="server_error">Server Error</string>
@@ -34,4 +34,6 @@
     <string name="no_internet">No internet connection</string>
     <string name="connection_timeout">Connection timeout</string>
     <string name="server_unavailable">Server unavailable</string>
+    <string name="login_required">Please log in to view your travels</string>
+    <string name="tap_profile_to_login">Tap the profile icon to sign in</string>
 </resources>

@@ -1,76 +1,84 @@
 package com.gibraltar0123.traveldiary.network
 
-import com.gibraltar0123.traveldiary.model.ApiResponse
+import com.gibraltar0123.traveldiary.model.OpStatus
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
 import okhttp3.RequestBody
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.Multipart
-import retrofit2.http.POST
-import retrofit2.http.PUT
-import retrofit2.http.Part
-import retrofit2.http.Query
+import retrofit2.http.*
+import java.util.concurrent.TimeUnit
 
 private const val BASE_URL = "http://103.175.219.150:3010/"
-
 
 private val moshi = Moshi.Builder()
     .add(KotlinJsonAdapterFactory())
     .build()
 
+private val logging = HttpLoggingInterceptor().apply {
+    level = HttpLoggingInterceptor.Level.BODY
+}
+
+private val client = OkHttpClient.Builder()
+    .connectTimeout(60, TimeUnit.SECONDS)
+    .readTimeout(60, TimeUnit.SECONDS)
+    .writeTimeout(60, TimeUnit.SECONDS)
+    .addInterceptor(logging)
+    .build()
 
 private val retrofit = Retrofit.Builder()
     .baseUrl(BASE_URL)
+    .client(client)
     .addConverterFactory(MoshiConverterFactory.create(moshi))
     .build()
 
 interface TravelApiService {
     @GET("travel")
     suspend fun getTravel(
-        @Query("userId") userId:String
-    ): ApiResponse
+        @Query("userId") userId: String
+    ): OpStatus
 
     @Multipart
-    @POST ("travel")
-    suspend fun  uploadTravel(
-
-        @Query("userId") userId:String,
+    @POST("travel")
+    suspend fun postTravel(
+        @Part("userId") userId: RequestBody,
         @Part("title") title: RequestBody,
-        @Part("description") RequestBody: RequestBody,
+        @Part("description") description: RequestBody,
         @Part image: MultipartBody.Part
-    ): ApiResponse
+    )
 
     @Multipart
-    @PUT ("travel")
+    @PUT("travel")
     suspend fun updateTravel(
-        @Query("userId") userId:String,
+        @Query("userId") userId: String,
         @Part("id") id: RequestBody,
         @Part("title") title: RequestBody,
         @Part("description") description: RequestBody,
         @Part image: MultipartBody.Part
-    ): ApiResponse
+    ): OpStatus
 
     @DELETE("travel")
     suspend fun deleteTravel(
-        @Query("userId") userId:String,
+        @Query("userId") userId: String,
         @Query("id") id: Int
-    ): ApiResponse
-
-
+    ): OpStatus
 }
-
 
 object TravelApi {
     val service: TravelApiService by lazy {
         retrofit.create(TravelApiService::class.java)
     }
 
-    fun getTravelUrl(imageId: String): String {
-        return "${BASE_URL}$imageId.jpg"
+    fun getTravelImageUrl(imageUrl: String): String {
+        return if (imageUrl.startsWith("http://")) {
+            imageUrl.replace("http://", "https://")
+        } else if (!imageUrl.startsWith("https://") && imageUrl.isNotEmpty()) {
+            "${BASE_URL}${imageUrl}"
+        } else imageUrl
     }
-    enum class ApiStatus { LOADING, SUCCESS, FAILED }
 }
+
+enum class ApiStatus { LOADING, SUCCESS, FAILED }
